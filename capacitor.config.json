@@ -1,0 +1,7 @@
+{
+  "appId": "com.infogoer.mltests",
+  "appName": "ml-tests",
+  "bundledWebRuntime": false,
+  "npmClient": "yarn",
+  "webDir": "build"
+}
