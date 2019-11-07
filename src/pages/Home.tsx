@@ -16,7 +16,7 @@ import {
   IonTitle,
   IonToolbar
   } from '@ionic/react';
-import { book } from 'ionicons/icons';
+import { book, image } from 'ionicons/icons';
 import React from 'react';
 import './Home.css';
 
@@ -46,15 +46,25 @@ const HomePage: React.FC = () => {
 
         <IonList lines="none">
           <IonListHeader>
-            <IonLabel>Sources</IonLabel>
+            <IonLabel>Sources (click the image to go to the page)</IonLabel>
           </IonListHeader>
-          <IonItem href="https://www.smashingmagazine.com/2019/09/machine-learning-front-end-developers-tensorflowjs/#pre-trained-model" target="_blank">
-            <IonIcon slot="start" color="medium" icon={book} />
-            <IonLabel>Image classification</IonLabel>
+          <IonItem>
+            <IonItem routerLink='/Classification' routerDirection="none">
+              <IonIcon slot="start" icon={image} />
+            </IonItem>
+            <IonItem href="https://www.smashingmagazine.com/2019/09/machine-learning-front-end-developers-tensorflowjs/#pre-trained-model" target="_blank">
+              <IonIcon slot="start" color="medium" icon={book} />
+              <IonLabel>Image classification</IonLabel>
+            </IonItem>
           </IonItem>
-          <IonItem href="https://www.smashingmagazine.com/2019/09/machine-learning-front-end-developers-tensorflowjs/#transfer-learning" target="_blank">
-            <IonIcon slot="start" color="medium" icon={book} />
-            <IonLabel>Teach model new classifications</IonLabel>
+          <IonItem>
+            <IonItem routerLink='/TransferLearning' routerDirection="none">
+              <IonIcon slot="start" icon={image} />
+            </IonItem>
+            <IonItem href="https://www.smashingmagazine.com/2019/09/machine-learning-front-end-developers-tensorflowjs/#transfer-learning" target="_blank">
+              <IonIcon slot="start" color="medium" icon={book} />
+              <IonLabel>Transfer learning</IonLabel>
+            </IonItem>
           </IonItem>
         </IonList>
       </IonContent>

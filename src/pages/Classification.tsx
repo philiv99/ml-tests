@@ -1,7 +1,6 @@
-
+/// <reference path="../types/ml5.d.ts" />
 import ClassifyImage from '../components/ClassifyImage/ClassifyImage';
 import { aperture } from 'ionicons/icons';
-import ml5 from 'ml5';
 import { ClassificationStatus } from '../helpers/Statuses'
 import './Home.css';
 
@@ -23,6 +22,7 @@ import {
 } from '@ionic/react'
 import { Plugins, CameraResultType } from '@capacitor/core';
 const { Camera } = Plugins;
+const ml5 = require('ml5');
 
 export interface ClassificationProps {}
 
