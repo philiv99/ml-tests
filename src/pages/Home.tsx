@@ -18,7 +18,7 @@ import {
   } from '@ionic/react';
 import { book, image } from 'ionicons/icons';
 import React from 'react';
-import './Home.css';
+import './Pages.css';
 
 const HomePage: React.FC = () => {
   return (

@@ -2,7 +2,7 @@ import React from 'react';
 import { Redirect, Route } from 'react-router-dom';
 import { IonApp, IonRouterOutlet, IonSplitPane, IonFooter, IonToolbar, IonTitle } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
-import { AppPage } from './declarations';
+import { AppPage } from './AppDeclarations';
 
 import Menu from './components/Menu';
 import Home from './pages/Home';

@@ -1,6 +1,7 @@
 import { IonButtons, IonContent, IonLabel, IonHeader, IonIcon, IonItem, IonList, IonMenuButton, IonPage, IonTitle, IonToolbar } from '@ionic/react';
 import { image } from 'ionicons/icons';
 import React from 'react';
+import './Pages.css';
 
 const ListPage: React.FC = () => {
   return (
