@@ -2,7 +2,7 @@
 import ClassifyImage from '../components/ClassifyImage/ClassifyImage';
 import { aperture } from 'ionicons/icons';
 import { ClassificationStatus } from '../helpers/Statuses'
-import './Home.css';
+import './Pages.css';
 
 import React, { Component } from 'react'
 import {
