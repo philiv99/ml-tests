@@ -37,6 +37,11 @@ interface LabelOption {
   label: string;
 }
 
+interface TrainingExample {
+  label: number,
+  image: any
+}
+
 interface Prediction {
   label: string;
   confidence: number;
@@ -60,9 +65,11 @@ export default class TransferLearningPage extends Component<TransferLearningProp
   LABELS: string;
   knn: any;
   featureExtractor: any;
+  classifier: any;
   timer: any;
   image: any;
   predictions: Array<Prediction>;
+  trainingExamples: Array<TrainingExample>;
   exampleCount: number;
 
   constructor (props:{}) {
@@ -75,6 +82,7 @@ export default class TransferLearningPage extends Component<TransferLearningProp
     }
     this.LABELS = "labels"
     this.predictions = new Array<Prediction>(ml5config.num_classes);
+    this.trainingExamples = new Array<TrainingExample>();
     this.labelInput = React.createRef();
     this.LogTextArea = React.createRef();
     this.imageRef = React.createRef();
@@ -130,72 +138,73 @@ export default class TransferLearningPage extends Component<TransferLearningProp
   };
 
   async loadClassifierAndModel() {
-    this.knn = await ml5.KNNClassifier();
     this.featureExtractor = await ml5.featureExtractor("MobileNet");
+    this.classifier = await this.featureExtractor.classification();
     this.log("Classifier and Model loaded");
   }
-  
-  async predict() {
-    this.log("Predicting...");
-    try {
-      const numLabels = this.knn.getNumLabels();
-      this.log(`Predicting: numLabels: ${numLabels}`)
-      const numClasses = this.knn.getCount();
-      this.log(`Predicting: numClasses: ${JSON.stringify(numClasses)}`)
-      if (numClasses.length > 0) {
-        // If classes have been added run predict
-        const logits = this.featureExtractor.infer(this.imageRef.current, "conv_preds");
-        const res = await this.knn.classify(logits, ml5config.topk);
 
-        for (let i = 0; i < ml5config.num_classes; i++) {
-          // The number of examples for each class
-          const exampleCount = this.knn.getClassExampleCount();
-          if (exampleCount[i] > 0) {
-            this.predictions[i] = {
-              label: this.state.labelOptions[i].label, 
-              confidence: res.confidences[i] * 100, 
-              count: exampleCount[i]};
-          }
-        }
-        this.log(`Predictions: ${JSON.stringify(this.predictions)}`)
-      }
-      this.log("Predictions: no knn classes")
+  async classifierResults(results:any) {
+    this.log(`classifierResults: ${JSON.stringify(results)}`);
+    let labels = await store.getObject(this.LABELS) as Array<string>;
+    let idxLabel = results[0].label - 1;
+    this.log(`Predicted label: (${results[0].label}) ${labels[idxLabel]}`)
+    this.log(`Prediction confidence: ${results[0].confidence}`)
+    // if (results && results.length>0) {
+    //   for(let i=0; i++; i<results.length) {
+    //     let result = results[i];
+    //     let idxLabel = result.label - 1;
+    //     this.log(`Predicted label: (${result.label}) ${labels[idxLabel]}`)
+    //     this.log(`Prediction confidence: ${result.confidence}`)
+    //   }
+    // }
+  }
+  async predict() {
+    let currentImage = this.imageRef.current;
+    if (!currentImage) {
+      this.log("Predict: No image selected");
+      return;
+    }
+    try {
+      this.classifier.classify(currentImage).then((results:any) => this.classifierResults(results));
     } catch (e) {
-      this.log(`Prediction error: [${e}]`)
+      this.log(`Predict error: [${e}]`)
+    }
+  }
+
+  async addExample() {
+    let labels = await store.getObject(this.LABELS) as Array<string>;
+    let selectedLabel = this.state.selectedLabel;
+    let idxLabel = this.state.selectedLabel-1;
+    let currentImage = this.imageRef.current;
+    if (selectedLabel == 0 || !currentImage) {
+      this.log("addExample: no label selected or no image available");
+      return;
+    }
+    try {
+      await this.classifier.addImage(currentImage, selectedLabel, 
+        (pa:any)=>{
+          this.log(`addExample: added image with label [${labels[idxLabel]}] [${JSON.stringify(pa)}]`);
+        }
+      );  
+    } catch (e) {
+      this.log(`addExample error: [${e}]`)
     }
   }
 
   async train() {
     this.log("Training...");
     try {
-      let logits = this.featureExtractor.infer(this.imageRef.current, "conv_preds");
-      this.knn.addExample(logits, this.state.selectedLabel);
-      const numLabels = this.knn.getNumLabels();
-      this.log("Training: numLabels: "+numLabels)
-      const numClasses = this.knn.getCount();
-      this.log(`Training: numClasses: ${JSON.stringify(numClasses)}`)
-      if (logits != null) {
-        logits.dispose();
-      } else {
-        this.log("Training: logits is null");
-      }
+      await this.classifier.train((loss:any)=>{});
       this.log("Trained");
     } catch (e) {
-      this.log(`Prediction error: [${e}]`)
+      this.log(`Training error: [${e}]`)
     }
   }
 
 
   onLabelSelected = (selectedObject: React.ChangeEvent<HTMLSelectElement>) => {
     var newLabel: number = Number(selectedObject.currentTarget.value);
-    if (newLabel) {
-      var oldLabel = this.state.selectedLabel;
-      this.setState({
-        selectedLabel: newLabel
-      })
-      var testLabel = this.state.selectedLabel;
-      this.log(`newLabel: ${newLabel} oldLabel: ${oldLabel} testLabel: ${testLabel}`);
-    }
+    if (newLabel) this.setState({selectedLabel: newLabel})
   }
 
   render () { 
@@ -207,7 +216,7 @@ export default class TransferLearningPage extends Component<TransferLearningProp
             <IonButtons slot="start">
               <IonMenuButton />
             </IonButtons>
-            <IonTitle>Transfer Learning x</IonTitle>
+            <IonTitle>Transfer Learning</IonTitle>
           </IonToolbar>
         </IonHeader>
         <IonContent>
@@ -235,6 +244,7 @@ export default class TransferLearningPage extends Component<TransferLearningProp
               <IonInput ref={this.labelInput} type="text" maxlength={25} placeholder="Enter new label">
                 <IonButton size="small" onClick={() => this.addLabel()}>Add Label</IonButton>
               </IonInput>
+              <IonButton size="small" onClick={() => this.addExample()}>Add Example</IonButton>
               <IonButton size="small" onClick={() => this.train()}>Train</IonButton>
               <IonButton size="small" onClick={() => this.predict()}>Predict</IonButton>
             </IonCard>
