@@ -1,10 +1,4 @@
 /// <reference path="../types/ml5.d.ts" />
-//import ClassifyImage from '../components/ClassifyImage/ClassifyImage';
-import { aperture } from 'ionicons/icons';
-//import { ClassificationStatus } from '../helpers/Statuses'
-import './Pages.css';
-
-import ml5config from '../configuration/ml5';
 
 import React, { Component } from 'react'
 import {
@@ -25,33 +19,19 @@ import {
   IonTextarea,
   IonItem
 } from '@ionic/react'
+import { aperture } from 'ionicons/icons';
 import { Plugins, CameraResultType, CameraSource, CameraDirection  } from '@capacitor/core';
+import './Pages.css';
 import Store from '../services/storage'
+import { TLModel, TLLabelOption } from '../Models/TLModel'
 const { Camera } = Plugins;
-const ml5 = require('ml5');
 
 export interface TransferLearningProps {}
 
-interface LabelOption {
-  id: number;
-  label: string;
-}
-
-interface TrainingExample {
-  label: number,
-  image: any
-}
-
-interface Prediction {
-  label: string;
-  confidence: number;
-  count: number;
-}
-
 export interface TransferLearningState {
   imageUrl: any,
-  labelOptions: Array<LabelOption>,
-  selectedLabel: number,
+  model: TLModel,
+  selectedLabel: string,
   logText: string
 }
 
@@ -62,35 +42,25 @@ export default class TransferLearningPage extends Component<TransferLearningProp
   LogTextArea: any;
   labelInput: any;
   imageRef: any;
-  LABELS: string;
-  knn: any;
-  featureExtractor: any;
-  classifier: any;
-  timer: any;
-  image: any;
-  predictions: Array<Prediction>;
-  trainingExamples: Array<TrainingExample>;
-  exampleCount: number;
 
   constructor (props:{}) {
     super(props)
     this.state = {
-      imageUrl: "img/Aidan2.JPG",
-      labelOptions: [],
-      selectedLabel: 0,
+      imageUrl: "",
+      model: new TLModel(),
+      selectedLabel: "",
       logText: "Log..."
     }
-    this.LABELS = "labels"
-    this.predictions = new Array<Prediction>(ml5config.num_classes);
-    this.trainingExamples = new Array<TrainingExample>();
     this.labelInput = React.createRef();
     this.LogTextArea = React.createRef();
     this.imageRef = React.createRef();
-    this.exampleCount = 0;
-    store.setObject(this.LABELS, []);
-    this.log(`ml5 version: ${ml5.version}`);
-    this.loadClassifierAndModel();
 
+  }
+
+  componentDidMount () {
+    this.state.model.createModel()
+      .then(() => this.log("Classifier and Model loaded"), 
+            (err:any) => this.log(`createModel failed: ${err}`));
   }
   
   compareWith = (o1: any, o2: any) => {
@@ -119,46 +89,31 @@ export default class TransferLearningPage extends Component<TransferLearningProp
   }
 
   async addLabel() {
-    if (!this.labelInput) return;
+    if (!this.labelInput) { this.log(`No label provided`);return; }
     let newLabel = this.labelInput.current.value;
-    if (newLabel === "") return;
-    let labels = await store.getObject(this.LABELS) as Array<string>;
-    if (!labels) labels = [];
-    if (!labels.find((element) => element === newLabel) && labels.length<ml5config.num_classes) {
-      labels.push(newLabel);
-      store.setObject(this.LABELS, labels);  
-      let newLabelOptions = this.state.labelOptions;
-      newLabelOptions.push({id: labels.length, label: newLabel})
-      this.setState({
-        labelOptions: newLabelOptions,
-        selectedLabel: labels.length
-      })
+    if (newLabel === ""){ this.log(`No label provided`);return; }
+    if (this.state.model.addLabel(newLabel) > 0) {
+      this.setState({selectedLabel: newLabel})
       this.labelInput.current.value = "";
-      ml5config.classes.push(newLabel);
+    } else {
+      this.log(`Label already exists`);
     }
   };
 
-  async loadClassifierAndModel() {
-    this.featureExtractor = await ml5.featureExtractor("MobileNet");
-    this.classifier = await this.featureExtractor.classification();
-    this.log("Classifier and Model loaded");
-  }
-
   async classifierResults(results:any) {
     this.log(`classifierResults: ${JSON.stringify(results)}`);
-    let labels = await store.getObject(this.LABELS) as Array<string>;
-    let idxLabel = results[0].label - 1;
-    this.log(`Predicted label: (${results[0].label}) ${labels[idxLabel]}`)
-    this.log(`Prediction confidence: ${results[0].confidence}`)
   }
-  async predict() {
+
+  predict() {
     let currentImage = this.imageRef.current;
     if (!currentImage) {
       this.log("Predict: No image selected");
       return;
     }
     try {
-      this.classifier.classify(currentImage).then((results:any) => this.classifierResults(results));
+      this.state.model.predict(currentImage)
+        .then((results:any) => this.classifierResults(results),
+              (err:any) => this.log(`Prediction failed: ${err}`));
     } catch (e) {
       this.log(`Predict error: [${e}]`)
     }
@@ -171,41 +126,38 @@ export default class TransferLearningPage extends Component<TransferLearningProp
   }
 
   async addExample() {
-    let labels = await store.getObject(this.LABELS) as Array<string>;
     let selectedLabel = this.state.selectedLabel;
-    let idxLabel = this.state.selectedLabel-1;
     let currentImage = this.imageRef.current;
-    if (selectedLabel == 0 || !currentImage) {
+    if (selectedLabel == "" || !currentImage) {
       this.log("addExample: no label selected or no image available");
       return;
     }
     try {
-      await this.classifier.addImage(currentImage, selectedLabel, (pa:any)=>{this.log(`addExample: labeled [${idxLabel}:${labels[idxLabel]}]`);
-        }
-      );  
+      this.state.model.addTrainingExample(currentImage, selectedLabel)
+          .then((pa:any) => this.log(`addExample:labeled [${selectedLabel}]`),
+                (err:any) => this.log(`addExample failed: ${err}`));
     } catch (e) {
       this.log(`addExample error: [${e}]`)
     }
   }
 
   async train() {
-    this.log("Training...");
     try {
-      await this.classifier.train((loss:any)=>{});
-      this.log("Trained");
+      this.state.model.train((loss:any)=>{})
+         .then(() => this.log("Trained"),
+               (err:any) => this.log(`train failed: ${err}`));
     } catch (e) {
       this.log(`Training error: [${e}]`)
     }
   }
 
-
   onLabelSelected = (selectedObject: React.ChangeEvent<HTMLSelectElement>) => {
-    var newLabel: number = Number(selectedObject.currentTarget.value);
+    var newLabel = selectedObject.currentTarget.value;
     if (newLabel) this.setState({selectedLabel: newLabel})
   }
 
   render () { 
-    const isSelectedText = (object: LabelOption) => this.state.selectedLabel==object.id?'selected':'';
+    const isSelectedText = (object: TLLabelOption) => this.state.selectedLabel==object.label?'selected':'';
     return (
       <IonPage> 
         <IonHeader>
@@ -223,17 +175,15 @@ export default class TransferLearningPage extends Component<TransferLearningProp
                   <IonIcon icon={aperture} />
                 </IonButton>
                 <img ref={this.imageRef} onLoad={this.ResizeImage.bind(this)} src={this.state.imageUrl} id="image" alt="" />
-                {/* <canvas id="image-canvas" width="224" height="224"></canvas>
-                <div id="measure"></div> */}
             </IonCardContent>
           </IonCard>
           
           <IonCard className="welcome-card">
               <IonItem>
                 <select  value={this.state.selectedLabel} onChange={(e) => this.onLabelSelected(e)}>
-                  {this.state.labelOptions.map((object, i) => {
+                  {this.state.model.labels.map((object, i) => {
                     return (
-                      <option key={object.id} value={object.id}>
+                      <option key={`label${i}`} value={object.label}>
                         {object.label}
                       </option>
                     );
