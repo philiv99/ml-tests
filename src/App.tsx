@@ -8,8 +8,7 @@ import Menu from './components/Menu';
 import Home from './pages/Home';
 import Classification from './pages/Classification';
 import TransferLearning from './pages/TransferLearning';
-import List from './pages/List';
-import { home, list } from 'ionicons/icons';
+import { home, school, albums } from 'ionicons/icons';
 
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/react/css/core.css';
@@ -37,9 +36,14 @@ const appPages: AppPage[] = [
     icon: home
   },
   {
-    title: 'Experiments',
-    url: '/home/list',
-    icon: list
+    title: 'Classifier',
+    url: '/Classification',
+    icon: albums
+  },
+  {
+    title: 'Transfer Learning',
+    url: '/TransferLearning',
+    icon: school
   }
 ];
 
@@ -53,7 +57,6 @@ const App: React.FC = () => (
           <Route path="/home" component={Home} exact={true} />
           <Route path="/Classification" component={Classification} exact={true} />
           <Route path="/TransferLearning" component={TransferLearning} exact={true} />
-          <Route path="/home/list" component={List} exact={true} />
           <Route path="/" render={() => <Redirect to="/home" exact={true} /> } />
         </IonRouterOutlet>
       </IonSplitPane>
