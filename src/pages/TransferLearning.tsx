@@ -22,7 +22,6 @@ import {
 import { aperture } from 'ionicons/icons';
 import { Plugins, CameraResultType, CameraSource, CameraDirection  } from '@capacitor/core';
 import './Pages.css';
-import Store from '../services/storage'
 import { TLModel, TLLabelOption } from '../Models/TLModel'
 const { Camera } = Plugins;
 
@@ -35,12 +34,10 @@ export interface TransferLearningState {
   logText: string
 }
 
-let store = new Store();
-
 export default class TransferLearningPage extends Component<TransferLearningProps, TransferLearningState>  {
 
-  LogTextArea: any;
-  labelInput: any;
+  logTextAreaRef: any;
+  labelInputRef: any;
   imageRef: any;
 
   constructor (props:{}) {
@@ -51,8 +48,8 @@ export default class TransferLearningPage extends Component<TransferLearningProp
       selectedLabel: "",
       logText: "Log..."
     }
-    this.labelInput = React.createRef();
-    this.LogTextArea = React.createRef();
+    this.labelInputRef = React.createRef();
+    this.logTextAreaRef = React.createRef();
     this.imageRef = React.createRef();
 
   }
@@ -73,46 +70,36 @@ export default class TransferLearningPage extends Component<TransferLearningProp
       allowEditing: false,
       resultType: CameraResultType.Uri
     }).then ((result) =>{
-      this.setState({
-        imageUrl: result.webPath
-      })
+      this.setState({ imageUrl: result.webPath })
     });
   }
 
   log(msg:string) {
-    if (this.LogTextArea && this.LogTextArea.current) {
-      var newText = this.LogTextArea.current.innerText + '\n' + msg ;
-      this.setState({ logText:newText});
+    if (this.logTextAreaRef && this.logTextAreaRef.current) {
+      this.setState({ logText: this.logTextAreaRef.current.innerText + '\n' + msg});
     } else {
       console.log(msg);
     }
   }
 
   async addLabel() {
-    if (!this.labelInput) { this.log(`No label provided`);return; }
-    let newLabel = this.labelInput.current.value;
-    if (newLabel === ""){ this.log(`No label provided`);return; }
+    if (!this.labelInputRef) { return this.log(`No label provided`); }
+    let newLabel = this.labelInputRef.current.value;
+    if (newLabel === ""){ return this.log(`No label provided`); }
     if (this.state.model.addLabel(newLabel) > 0) {
       this.setState({selectedLabel: newLabel})
-      this.labelInput.current.value = "";
+      this.labelInputRef.current.value = "";
     } else {
       this.log(`Label already exists`);
     }
-  };
-
-  async classifierResults(results:any) {
-    this.log(`classifierResults: ${JSON.stringify(results)}`);
   }
 
   predict() {
     let currentImage = this.imageRef.current;
-    if (!currentImage) {
-      this.log("Predict: No image selected");
-      return;
-    }
+    if (!currentImage) { return this.log("Predict: No image selected"); }
     try {
       this.state.model.predict(currentImage)
-        .then((results:any) => this.classifierResults(results),
+        .then((results:any) => this.log(`Prediction: ${JSON.stringify(results)}`),
               (err:any) => this.log(`Prediction failed: ${err}`));
     } catch (e) {
       this.log(`Predict error: [${e}]`)
@@ -134,7 +121,7 @@ export default class TransferLearningPage extends Component<TransferLearningProp
     }
     try {
       this.state.model.addTrainingExample(currentImage, selectedLabel)
-          .then((pa:any) => this.log(`addExample:labeled [${selectedLabel}]`),
+          .then(() => this.log(`addExample:labeled [${selectedLabel}]`),
                 (err:any) => this.log(`addExample failed: ${err}`));
     } catch (e) {
       this.log(`addExample error: [${e}]`)
@@ -190,7 +177,7 @@ export default class TransferLearningPage extends Component<TransferLearningProp
                   })}>
                 </select>
               </IonItem>
-              <IonInput ref={this.labelInput} type="text" maxlength={25} placeholder="Enter new label">
+              <IonInput ref={this.labelInputRef} type="text" maxlength={25} placeholder="Enter new label">
                 <IonButton size="small" onClick={() => this.addLabel()}>Add Label</IonButton>
               </IonInput>
               <IonButton size="small" onClick={() => this.addExample()}>Add Example</IonButton>
@@ -198,7 +185,7 @@ export default class TransferLearningPage extends Component<TransferLearningProp
               <IonButton size="small" onClick={() => this.predict()}>Predict</IonButton>
             </IonCard>
             <IonCard className="welcome-card">
-              <IonTextarea ref={this.LogTextArea} >{this.state.logText}</IonTextarea>
+              <IonTextarea ref={this.logTextAreaRef} >{this.state.logText}</IonTextarea>
             </IonCard>
         </IonContent>
       </IonPage>
