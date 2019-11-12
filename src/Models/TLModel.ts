@@ -39,7 +39,10 @@ export class TLModel extends BaseModel {
     }
 
     async createModel () {
-        this.featureExtractor = await ml5.featureExtractor("MobileNet");
+        this.featureExtractor = await ml5.featureExtractor("MobileNet", {
+            epochs: 30,
+            numLabels: 4
+          });
         return this.classifier = this.featureExtractor.classification();
     }
     
