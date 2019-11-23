@@ -1,10 +1,4 @@
 /// <reference path="../types/ml5.d.ts" />
-//import ClassifyImage from '../components/ClassifyImage/ClassifyImage';
-import { aperture } from 'ionicons/icons';
-//import { ClassificationStatus } from '../helpers/Statuses'
-import './Pages.css';
-
-import ml5config from '../configuration/ml5';
 
 import React, { Component } from 'react'
 import {
@@ -25,64 +19,45 @@ import {
   IonTextarea,
   IonItem
 } from '@ionic/react'
+import { aperture } from 'ionicons/icons';
 import { Plugins, CameraResultType, CameraSource, CameraDirection  } from '@capacitor/core';
-import Store from '../services/storage'
+import './Pages.css';
+import { TLModel, TLLabelOption } from '../Models/TLModel'
 const { Camera } = Plugins;
-const ml5 = require('ml5');
 
 export interface TransferLearningProps {}
 
-interface LabelOption {
-  id: number;
-  label: string;
-}
-
-interface Prediction {
-  label: string;
-  confidence: number;
-  count: number;
-}
-
 export interface TransferLearningState {
   imageUrl: any,
-  labelOptions: Array<LabelOption>,
-  selectedLabel: number,
+  model: TLModel,
+  selectedLabel: string,
   logText: string
 }
 
-let store = new Store();
-
 export default class TransferLearningPage extends Component<TransferLearningProps, TransferLearningState>  {
 
-  LogTextArea: any;
-  labelInput: any;
+  logTextAreaRef: any;
+  labelInputRef: any;
   imageRef: any;
-  LABELS: string;
-  knn: any;
-  featureExtractor: any;
-  timer: any;
-  image: any;
-  predictions: Array<Prediction>;
-  exampleCount: number;
 
   constructor (props:{}) {
     super(props)
     this.state = {
-      imageUrl: "img/Aidan2.JPG",
-      labelOptions: [],
-      selectedLabel: 0,
+      imageUrl: "",
+      model: new TLModel(),
+      selectedLabel: "",
       logText: "Log..."
     }
-    this.LABELS = "labels"
-    this.predictions = new Array<Prediction>(ml5config.num_classes);
-    this.labelInput = React.createRef();
-    this.LogTextArea = React.createRef();
+    this.labelInputRef = React.createRef();
+    this.logTextAreaRef = React.createRef();
     this.imageRef = React.createRef();
-    this.exampleCount = 0;
-    store.setObject(this.LABELS, []);
-    this.log(`ml5 version: ${ml5.version}`);
-    this.loadClassifierAndModel();
 
+  }
+
+  componentDidMount () {
+    this.state.model.createModel()
+      .then(() => this.log("Classifier and Model loaded"), 
+            (err:any) => this.log(`createModel failed: ${err}`));
   }
   
   compareWith = (o1: any, o2: any) => {
@@ -90,116 +65,86 @@ export default class TransferLearningPage extends Component<TransferLearningProp
   };
   
   async takePicture() {
-    this.image = await Camera.getPhoto({
+    Camera.getPhoto({
       quality: 75,
       allowEditing: false,
       resultType: CameraResultType.Uri
+    }).then ((result) =>{
+      this.setState({ imageUrl: result.webPath })
     });
-    this.setState({
-      imageUrl: this.image.webPath
-    })
   }
 
   log(msg:string) {
-    if (this.LogTextArea && this.LogTextArea.current) {
-      var newText = this.LogTextArea.current.innerText + '\n' + msg ;
-      this.setState({ logText:newText});
+    if (this.logTextAreaRef && this.logTextAreaRef.current) {
+      this.setState({ logText: this.logTextAreaRef.current.innerText + '\n' + msg});
     } else {
       console.log(msg);
     }
   }
 
   async addLabel() {
-    if (!this.labelInput) return;
-    let newLabel = this.labelInput.current.value;
-    if (newLabel === "") return;
-    let labels = await store.getObject(this.LABELS) as Array<string>;
-    if (!labels) labels = [];
-    if (!labels.find((element) => element === newLabel) && labels.length<ml5config.num_classes) {
-      labels.push(newLabel);
-      store.setObject(this.LABELS, labels);  
-      let newLabelOptions = this.state.labelOptions;
-      newLabelOptions.push({id: labels.length, label: newLabel})
-      this.setState({
-        labelOptions: newLabelOptions,
-        selectedLabel: labels.length
-      })
-      this.labelInput.current.value = "";
-      ml5config.classes.push(newLabel);
+    if (!this.labelInputRef) { return this.log(`No label provided`); }
+    let newLabel = this.labelInputRef.current.value;
+    if (newLabel === ""){ return this.log(`No label provided`); }
+    if (this.state.model.addLabel(newLabel) > 0) {
+      this.setState({selectedLabel: newLabel})
+      this.labelInputRef.current.value = "";
+    } else {
+      this.log(`Label already exists`);
     }
-  };
+  }
 
-  async loadClassifierAndModel() {
-    this.knn = await ml5.KNNClassifier();
-    this.featureExtractor = await ml5.featureExtractor("MobileNet");
-    this.log("Classifier and Model loaded");
+  predict() {
+    let currentImage = this.imageRef.current;
+    if (!currentImage) { return this.log("Predict: No image selected"); }
+    try {
+      this.state.model.predict(currentImage)
+        .then((results:any) => this.log(`Prediction: ${JSON.stringify(results)}`),
+              (err:any) => this.log(`Prediction failed: ${err}`));
+    } catch (e) {
+      this.log(`Predict error: [${e}]`)
+    }
   }
   
-  async predict() {
-    this.log("Predicting...");
-    try {
-      const numLabels = this.knn.getNumLabels();
-      this.log(`Predicting: numLabels: ${numLabels}`)
-      const numClasses = this.knn.getCount();
-      this.log(`Predicting: numClasses: ${JSON.stringify(numClasses)}`)
-      if (numClasses.length > 0) {
-        // If classes have been added run predict
-        const logits = this.featureExtractor.infer(this.imageRef.current, "conv_preds");
-        const res = await this.knn.classify(logits, ml5config.topk);
+  ResizeImage(e: any) {
+    const MAX: number = 224
+    var img = this.imageRef.current;
+    img.size(MAX, MAX);
+  }
 
-        for (let i = 0; i < ml5config.num_classes; i++) {
-          // The number of examples for each class
-          const exampleCount = this.knn.getClassExampleCount();
-          if (exampleCount[i] > 0) {
-            this.predictions[i] = {
-              label: this.state.labelOptions[i].label, 
-              confidence: res.confidences[i] * 100, 
-              count: exampleCount[i]};
-          }
-        }
-        this.log(`Predictions: ${JSON.stringify(this.predictions)}`)
-      }
-      this.log("Predictions: no knn classes")
+  async addExample() {
+    let selectedLabel = this.state.selectedLabel;
+    let currentImage = this.imageRef.current;
+    if (selectedLabel == "" || !currentImage) {
+      this.log("addExample: no label selected or no image available");
+      return;
+    }
+    try {
+      this.state.model.addTrainingExample(currentImage, selectedLabel)
+          .then(() => this.log(`addExample:labeled [${selectedLabel}]`),
+                (err:any) => this.log(`addExample failed: ${err}`));
     } catch (e) {
-      this.log(`Prediction error: [${e}]`)
+      this.log(`addExample error: [${e}]`)
     }
   }
 
   async train() {
-    this.log("Training...");
     try {
-      let logits = this.featureExtractor.infer(this.imageRef.current, "conv_preds");
-      this.knn.addExample(logits, this.state.selectedLabel);
-      const numLabels = this.knn.getNumLabels();
-      this.log("Training: numLabels: "+numLabels)
-      const numClasses = this.knn.getCount();
-      this.log(`Training: numClasses: ${JSON.stringify(numClasses)}`)
-      if (logits != null) {
-        logits.dispose();
-      } else {
-        this.log("Training: logits is null");
-      }
-      this.log("Trained");
+      this.state.model.train((loss:any)=>{})
+         .then(() => this.log("Trained"),
+               (err:any) => this.log(`train failed: ${err}`));
     } catch (e) {
-      this.log(`Prediction error: [${e}]`)
+      this.log(`Training error: [${e}]`)
     }
   }
 
-
   onLabelSelected = (selectedObject: React.ChangeEvent<HTMLSelectElement>) => {
-    var newLabel: number = Number(selectedObject.currentTarget.value);
-    if (newLabel) {
-      var oldLabel = this.state.selectedLabel;
-      this.setState({
-        selectedLabel: newLabel
-      })
-      var testLabel = this.state.selectedLabel;
-      this.log(`newLabel: ${newLabel} oldLabel: ${oldLabel} testLabel: ${testLabel}`);
-    }
+    var newLabel = selectedObject.currentTarget.value;
+    if (newLabel) this.setState({selectedLabel: newLabel})
   }
 
   render () { 
-    const isSelectedText = (object: LabelOption) => this.state.selectedLabel==object.id?'selected':'';
+    const isSelectedText = (object: TLLabelOption) => this.state.selectedLabel==object.label?'selected':'';
     return (
       <IonPage> 
         <IonHeader>
@@ -207,7 +152,7 @@ export default class TransferLearningPage extends Component<TransferLearningProp
             <IonButtons slot="start">
               <IonMenuButton />
             </IonButtons>
-            <IonTitle>Transfer Learning x</IonTitle>
+            <IonTitle>Transfer Learning</IonTitle>
           </IonToolbar>
         </IonHeader>
         <IonContent>
@@ -216,178 +161,34 @@ export default class TransferLearningPage extends Component<TransferLearningProp
                 <IonButton size="small" onClick={() => this.takePicture()}>
                   <IonIcon icon={aperture} />
                 </IonButton>
-                 <img ref={this.imageRef} src={this.state.imageUrl} id="image" alt="" />
+                <img ref={this.imageRef} onLoad={this.ResizeImage.bind(this)} src={this.state.imageUrl} id="image" alt="" />
             </IonCardContent>
           </IonCard>
           
           <IonCard className="welcome-card">
               <IonItem>
                 <select  value={this.state.selectedLabel} onChange={(e) => this.onLabelSelected(e)}>
-                  {this.state.labelOptions.map((object, i) => {
+                  {this.state.model.labels.map((object, i) => {
                     return (
-                      <option key={object.id} value={object.id}>
+                      <option key={`label${i}`} value={object.label}>
                         {object.label}
                       </option>
                     );
                   })}>
                 </select>
               </IonItem>
-              <IonInput ref={this.labelInput} type="text" maxlength={25} placeholder="Enter new label">
+              <IonInput ref={this.labelInputRef} type="text" maxlength={25} placeholder="Enter new label">
                 <IonButton size="small" onClick={() => this.addLabel()}>Add Label</IonButton>
               </IonInput>
+              <IonButton size="small" onClick={() => this.addExample()}>Add Example</IonButton>
               <IonButton size="small" onClick={() => this.train()}>Train</IonButton>
               <IonButton size="small" onClick={() => this.predict()}>Predict</IonButton>
             </IonCard>
             <IonCard className="welcome-card">
-              <IonTextarea ref={this.LogTextArea} >{this.state.logText}</IonTextarea>
+              <IonTextarea ref={this.logTextAreaRef} >{this.state.logText}</IonTextarea>
             </IonCard>
         </IonContent>
       </IonPage>
     );
   }
 };
-
-// // Number of classes to classify
-// const NUM_CLASSES = 2;
-// // Webcam Image size. Must be 227.
-// const IMAGE_SIZE = 227;
-// // K value for KNN
-// const TOPK = 10;
-
-// const classes = ["Left", "Right"];
-// let testPrediction = false;
-// let training = true;
-// let video = document.getElementById("webcam");
-
-// class App {
-//   constructor() {
-//     this.infoTexts = [];
-//     this.training = -1; // -1 when no class is being trained
-//     this.recordSamples = false;
-
-//     // Initiate deeplearn.js math and knn classifier objects
-//     this.loadClassifierAndModel();
-//     this.initiateWebcam();
-//     this.setupButtonEvents();
-//   }
-
-//   async loadClassifierAndModel() {
-//     this.knn = knnClassifier.create();
-//     this.mobilenetModule = await mobilenet.load();
-//     console.log("model loaded");
-
-//     this.start();
-//   }
-
-//   initiateWebcam() {
-//     // Setup webcam
-//     navigator.mediaDevices
-//       .getUserMedia({ video: true, audio: false })
-//       .then(stream => {
-//         video.srcObject = stream;
-//         video.width = IMAGE_SIZE;
-//         video.height = IMAGE_SIZE;
-//       });
-//   }
-
-//   setupButtonEvents() {
-//     for (let i = 0; i < NUM_CLASSES; i++) {
-//       let button = document.getElementsByClassName("button")[i];
-
-//       button.onmousedown = () => {
-//         this.training = i;
-//         this.recordSamples = true;
-//       };
-//       button.onmouseup = () => (this.training = -1);
-
-//       const infoText = document.getElementsByClassName("info-text")[i];
-//       infoText.innerText = " No examples added";
-//       this.infoTexts.push(infoText);
-//     }
-//   }
-
-//   start() {
-//     if (this.timer) {
-//       this.stop();
-//     }
-//     this.timer = requestAnimationFrame(this.animate.bind(this));
-//   }
-
-//   stop() {
-//     cancelAnimationFrame(this.timer);
-//   }
-
-//   async animate() {
-//     if (this.recordSamples) {
-//       // Get image data from video element
-//       const image = tf.browser.fromPixels(video);
-
-//       let logits;
-//       // 'conv_preds' is the logits activation of MobileNet.
-//       const infer = () => this.mobilenetModule.infer(image, "conv_preds");
-
-//       // Train class if one of the buttons is held down
-//       if (this.training != -1) {
-//         logits = infer();
-
-//         // Add current image to classifier
-//         this.knn.addExample(logits, this.training);
-//       }
-
-//       const numClasses = this.knn.getNumClasses();
-
-//       if (testPrediction) {
-//         training = false;
-//         if (numClasses > 0) {
-//           // If classes have been added run predict
-//           logits = infer();
-//           const res = await this.knn.predictClass(logits, TOPK);
-
-//           for (let i = 0; i < NUM_CLASSES; i++) {
-//             // The number of examples for each class
-//             const exampleCount = this.knn.getClassExampleCount();
-
-//             // Make the predicted class bold
-//             if (res.classIndex == i) {
-//               this.infoTexts[i].style.fontWeight = "bold";
-//             } else {
-//               this.infoTexts[i].style.fontWeight = "normal";
-//             }
-
-//             if (exampleCount[i] > 0) {
-//               this.infoTexts[i].innerText = ` ${
-//                 exampleCount[i]
-//               } examples - ${res.confidences[i] * 100}%`;
-//             }
-//           }
-//         }
-//       }
-
-//       if (training) {
-//         // The number of examples for each class
-//         const exampleCount = this.knn.getClassExampleCount();
-
-//         for (let i = 0; i < NUM_CLASSES; i++) {
-//           if (exampleCount[i] > 0) {
-//             this.infoTexts[i].innerText = ` ${exampleCount[i]} examples`;
-//           }
-//         }
-//       }
-
-//       // Dispose image when done
-//       image.dispose();
-//       if (logits != null) {
-//         logits.dispose();
-//       }
-//     }
-//     this.timer = requestAnimationFrame(this.animate.bind(this));
-//   }
-// }
-
-// document
-//   .getElementsByClassName("test-predictions")[0]
-//   .addEventListener("click", function() {
-//     testPrediction = true;
-//   });
-
-// new App();
