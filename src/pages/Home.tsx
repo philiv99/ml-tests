@@ -16,7 +16,7 @@ import {
   IonTitle,
   IonToolbar
   } from '@ionic/react';
-import { book, image } from 'ionicons/icons';
+import { book, image, albums, school } from 'ionicons/icons';
 import React from 'react';
 import './Pages.css';
 
@@ -50,7 +50,7 @@ const HomePage: React.FC = () => {
           </IonListHeader>
           <IonItem>
             <IonItem routerLink='/Classification' routerDirection="none">
-              <IonIcon slot="start" icon={image} />
+              <IonIcon slot="start" icon={albums} />
             </IonItem>
             <IonItem href="https://www.smashingmagazine.com/2019/09/machine-learning-front-end-developers-tensorflowjs/#pre-trained-model" target="_blank">
               <IonIcon slot="start" color="medium" icon={book} />
@@ -59,7 +59,7 @@ const HomePage: React.FC = () => {
           </IonItem>
           <IonItem>
             <IonItem routerLink='/TransferLearning' routerDirection="none">
-              <IonIcon slot="start" icon={image} />
+              <IonIcon slot="start" icon={school} />
             </IonItem>
             <IonItem href="https://www.smashingmagazine.com/2019/09/machine-learning-front-end-developers-tensorflowjs/#transfer-learning" target="_blank">
               <IonIcon slot="start" color="medium" icon={book} />
