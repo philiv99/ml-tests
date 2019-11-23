@@ -13,16 +13,18 @@ import {
   IonTitle,
   IonToolbar,
   IonHeader,
-  IonCardSubtitle,
+  IonModal,
   IonCardContent,
   IonInput,
   IonTextarea,
   IonItem
 } from '@ionic/react'
-import { aperture } from 'ionicons/icons';
+import { aperture, settings } from 'ionicons/icons';
 import { Plugins, CameraResultType, CameraSource, CameraDirection  } from '@capacitor/core';
 import './Pages.css';
 import { TLModel, TLLabelOption } from '../Models/TLModel'
+import Settings from '../components/Settings'
+import FileManager from '../services/FileManager'
 const { Camera } = Plugins;
 
 export interface TransferLearningProps {}
@@ -31,7 +33,9 @@ export interface TransferLearningState {
   imageUrl: any,
   model: TLModel,
   selectedLabel: string,
-  logText: string
+  logText: string,
+  modelLoaded: boolean,
+  showSettings: boolean
 }
 
 export default class TransferLearningPage extends Component<TransferLearningProps, TransferLearningState>  {
@@ -46,7 +50,9 @@ export default class TransferLearningPage extends Component<TransferLearningProp
       imageUrl: "",
       model: new TLModel(),
       selectedLabel: "",
-      logText: "Log..."
+      logText: "Log...",
+      modelLoaded: false,
+      showSettings: false
     }
     this.labelInputRef = React.createRef();
     this.logTextAreaRef = React.createRef();
@@ -56,7 +62,7 @@ export default class TransferLearningPage extends Component<TransferLearningProp
 
   componentDidMount () {
     this.state.model.createModel()
-      .then(() => this.log("Classifier and Model loaded"), 
+      .then(() => { this.log("Classifier and Model loaded"); this.setState({modelLoaded: true}) }, 
             (err:any) => this.log(`createModel failed: ${err}`));
   }
   
@@ -115,6 +121,7 @@ export default class TransferLearningPage extends Component<TransferLearningProp
   async addExample() {
     let selectedLabel = this.state.selectedLabel;
     let currentImage = this.imageRef.current;
+    this.log(currentImage)
     if (selectedLabel == "" || !currentImage) {
       this.log("addExample: no label selected or no image available");
       return;
@@ -129,6 +136,10 @@ export default class TransferLearningPage extends Component<TransferLearningProp
   }
 
   async train() {
+    const fileMgr = new FileManager();
+    this.log("Writing file: "+fileMgr.fileWrite());
+    this.log("Reading dir: "+fileMgr.readdir(''))
+    this.log(JSON.stringify(this.state.model.getTrainingHistory()))
     try {
       this.state.model.train((loss:any)=>{})
          .then(() => this.log("Trained"),
@@ -156,10 +167,17 @@ export default class TransferLearningPage extends Component<TransferLearningProp
           </IonToolbar>
         </IonHeader>
         <IonContent>
+          <IonModal isOpen={this.state.showSettings}>
+            <Settings />
+            <IonButton onClick={() => { this.setState({ showSettings: false} ) }}>Close Modal</IonButton>
+          </IonModal>
           <IonCard className="welcome-card">
             <IonCardContent> 
-                <IonButton size="small" onClick={() => this.takePicture()}>
+                <IonButton size="small" onClick={() => this.takePicture()} disabled={!this.state.modelLoaded}>
                   <IonIcon icon={aperture} />
+                </IonButton>
+                <IonButton size="small" onClick={() => this.setState({showSettings: true})} >
+                  <IonIcon icon={settings} />
                 </IonButton>
                 <img ref={this.imageRef} onLoad={this.ResizeImage.bind(this)} src={this.state.imageUrl} id="image" alt="" />
             </IonCardContent>
@@ -180,9 +198,9 @@ export default class TransferLearningPage extends Component<TransferLearningProp
               <IonInput ref={this.labelInputRef} type="text" maxlength={25} placeholder="Enter new label">
                 <IonButton size="small" onClick={() => this.addLabel()}>Add Label</IonButton>
               </IonInput>
-              <IonButton size="small" onClick={() => this.addExample()}>Add Example</IonButton>
-              <IonButton size="small" onClick={() => this.train()}>Train</IonButton>
-              <IonButton size="small" onClick={() => this.predict()}>Predict</IonButton>
+              <IonButton size="small" onClick={() => this.addExample()} disabled={!this.state.modelLoaded}>Add Example</IonButton>
+              <IonButton size="small" onClick={() => this.train()} disabled={!this.state.modelLoaded}>Train</IonButton>
+              <IonButton size="small" onClick={() => this.predict()} disabled={!this.state.modelLoaded}>Predict</IonButton>
             </IonCard>
             <IonCard className="welcome-card">
               <IonTextarea ref={this.logTextAreaRef} >{this.state.logText}</IonTextarea>

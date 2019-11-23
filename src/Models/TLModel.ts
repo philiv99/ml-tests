@@ -12,15 +12,15 @@ export class TLTrainingDatum {
     fileUri: string;
     label: string | number;
 
-    constructor () {
-        this.fileUri = "";
-        this.label = "";
+    constructor (fileUri: string = "", label: string = "") {
+        this.fileUri = fileUri;
+        this.label = label;
     }
 }
 
 export interface TLLabelOption {
     label: string;
-  }
+}
 
 export class TLModel extends BaseModel {
     trainingData: Array<TLTrainingDatum>;
@@ -41,7 +41,8 @@ export class TLModel extends BaseModel {
     async createModel () {
         this.featureExtractor = await ml5.featureExtractor("MobileNet", {
             epochs: 30,
-            numLabels: 4
+            numLabels: 30,
+            topk: 3
           });
         return this.classifier = this.featureExtractor.classification();
     }
@@ -67,7 +68,14 @@ export class TLModel extends BaseModel {
     }
 
     addTrainingExample(image: any, label: string) {
-      return this.classifier.addImage(image, label);
+        var tlTrainingDatum = new TLTrainingDatum(image.src, label);
+        this.trainingData.push(tlTrainingDatum);
+
+        return this.classifier.addImage(image, label);
+    }
+
+    getTrainingHistory() {
+        return this.trainingData;
     }
     
     saveModel () {
