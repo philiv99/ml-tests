@@ -6,11 +6,11 @@ class FileManager {
 
 
 
-   async fileWrite() {
+   async fileWrite(path:string, data:string) {
         try {
             await Filesystem.writeFile({
-                path: 'text.txt',
-                data: "This is a test",
+                path: path,
+                data: data,
                 directory: FilesystemDirectory.Documents,
                 encoding: FilesystemEncoding.UTF8
             })
@@ -74,6 +74,18 @@ class FileManager {
             let ret = await Filesystem.readdir({
                 path: path,
                 directory: FilesystemDirectory.Documents
+            });
+            return ret;
+        } catch(e) {
+            return e;
+        }
+    }
+
+    async readdirectory(path: string, dir: FilesystemDirectory) {
+        try {
+            let ret = await Filesystem.readdir({
+                path: path,
+                directory: dir
             });
             return ret;
         } catch(e) {
