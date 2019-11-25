@@ -23,8 +23,7 @@ import { aperture, settings } from 'ionicons/icons';
 import { Plugins, CameraResultType, CameraSource, CameraDirection  } from '@capacitor/core';
 import './Pages.css';
 import { TLModel, TLLabelOption } from '../Models/TLModel'
-import Settings from '../components/Settings'
-import FileManager from '../services/FileManager'
+import ModelManager from '../components/ModelManager'
 const { Camera } = Plugins;
 
 export interface TransferLearningProps {}
@@ -35,7 +34,7 @@ export interface TransferLearningState {
   selectedLabel: string,
   logText: string,
   modelLoaded: boolean,
-  showSettings: boolean
+  showModelManager: boolean
 }
 
 export default class TransferLearningPage extends Component<TransferLearningProps, TransferLearningState>  {
@@ -52,7 +51,7 @@ export default class TransferLearningPage extends Component<TransferLearningProp
       selectedLabel: "",
       logText: "Log...",
       modelLoaded: false,
-      showSettings: false
+      showModelManager: false
     }
     this.labelInputRef = React.createRef();
     this.logTextAreaRef = React.createRef();
@@ -136,10 +135,6 @@ export default class TransferLearningPage extends Component<TransferLearningProp
   }
 
   async train() {
-    const fileMgr = new FileManager();
-    this.log("Writing file: "+fileMgr.fileWrite());
-    this.log("Reading dir: "+fileMgr.readdir(''))
-    this.log(JSON.stringify(this.state.model.getTrainingHistory()))
     try {
       this.state.model.train((loss:any)=>{})
          .then(() => this.log("Trained"),
@@ -167,16 +162,17 @@ export default class TransferLearningPage extends Component<TransferLearningProp
           </IonToolbar>
         </IonHeader>
         <IonContent>
-          <IonModal isOpen={this.state.showSettings}>
-            <Settings />
-            <IonButton onClick={() => { this.setState({ showSettings: false} ) }}>Close Modal</IonButton>
+          <IonModal isOpen={this.state.showModelManager}>
+            <ModelManager model={this.state.model} />
+            <IonButton onClick={() => { this.setState({ showModelManager: false} ) }}>Close Modal</IonButton>
           </IonModal>
           <IonCard className="welcome-card">
             <IonCardContent> 
+                <span>{this.state.model.modelOptions.name}</span>
                 <IonButton size="small" onClick={() => this.takePicture()} disabled={!this.state.modelLoaded}>
                   <IonIcon icon={aperture} />
                 </IonButton>
-                <IonButton size="small" onClick={() => this.setState({showSettings: true})} >
+                <IonButton size="small" onClick={() => this.setState({showModelManager: true})} >
                   <IonIcon icon={settings} />
                 </IonButton>
                 <img ref={this.imageRef} onLoad={this.ResizeImage.bind(this)} src={this.state.imageUrl} id="image" alt="" />
