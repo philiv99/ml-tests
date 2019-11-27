@@ -1,5 +1,3 @@
-/// <reference path="../types/ml5.d.ts" />
-
 import React, { Component } from 'react'
 import {
   IonContent,

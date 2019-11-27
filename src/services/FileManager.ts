@@ -7,26 +7,20 @@ class FileManager {
 
 
    async fileWrite(path:string, data:string) {
-        try {
-            await Filesystem.writeFile({
+        return Filesystem.writeFile({
                 path: path,
                 data: data,
                 directory: FilesystemDirectory.Documents,
                 encoding: FilesystemEncoding.UTF8
-            })
-            return "";
-        } catch(e) {
-            return e;
-        }
+            });
     }
 
-    async fileRead() {
-        let contents = await Filesystem.readFile({
-            path: 'secrets/text.txt',
-            directory: FilesystemDirectory.Documents,
+    async fileRead(path:string, dir: FilesystemDirectory) {
+        return Filesystem.readFile({
+            path: path,
+            directory: dir,
             encoding: FilesystemEncoding.UTF8
-        });
-        console.log(contents);
+        }).then ((r) => { return r});
     }
 
     async fileAppend() {
