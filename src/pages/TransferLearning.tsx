@@ -180,7 +180,7 @@ export default class TransferLearningPage extends Component<TransferLearningProp
           <IonCard className="welcome-card">
               <IonItem>
                 <select  value={this.state.selectedLabel} onChange={(e) => this.onLabelSelected(e)}>
-                  {this.state.model.labels.map((object, i) => {
+                  {this.state.model.modelOptions.options.labels.map((object, i) => {
                     return (
                       <option key={`label${i}`} value={object.label}>
                         {object.label}

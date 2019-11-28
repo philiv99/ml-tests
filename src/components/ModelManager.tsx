@@ -6,11 +6,13 @@ import {
   IonInput,
   IonToast,
   IonContent,
-  IonCardContent
+  IonCardContent,
+  IonCardHeader
 } from '@ionic/react'
 import { disc } from 'ionicons/icons';
 import { TLModel, TLLabelOption, TLModelState } from '../Models/TLModel';
 import FolderSelector from './FolderSelector';
+import ModelSettings from './ModelSettings';
 
 
 export interface ModelManagerProps {
@@ -21,13 +23,15 @@ export interface ModelManagerState {
   newModel: TLModel,
   loadedModel: TLModel,
   showToast: boolean,
-  toastMsg: string
+  toastMsg: string,
+  managerState: number
 }
 
 
 export default class ModelManager extends Component<ModelManagerProps, ModelManagerState> {
 
   modelNameRef: any;
+  selectedModelName: string;
 
   constructor (props:{model:TLModel}) {
     super(props);
@@ -35,10 +39,13 @@ export default class ModelManager extends Component<ModelManagerProps, ModelMana
       newModel: new TLModel(),
       loadedModel: this.props.model,
       showToast: false,
-      toastMsg: ""
+      toastMsg: "",
+      managerState: 0
     };
+    this.selectedModelName = "";
     this.modelNameRef =  React.createRef();
     this.updateModelName = this.updateModelName.bind(this);
+    this.setSelectedModelFolder = this.setSelectedModelFolder.bind(this);
   }
 
   updateModelName(event: React.FormEvent<HTMLIonInputElement>) {
@@ -47,9 +54,10 @@ export default class ModelManager extends Component<ModelManagerProps, ModelMana
   }
 
   saveModel() {
-    if (!this.modelNameRef || !this.modelNameRef.current) { return `No model name provided`; }
-    let modelName = this.modelNameRef.current.value;
-    if (modelName == "") { return `No model name provided`; }
+    let modelName = "";
+    if (this.modelNameRef && !this.modelNameRef.current) { 
+      modelName = this.modelNameRef.current.value;
+    }
     this.props.model.saveModel(modelName).then(()=>{
       this.setState({toastMsg: "Model saved", showToast: true});
     });
@@ -60,11 +68,24 @@ export default class ModelManager extends Component<ModelManagerProps, ModelMana
   }
 
   setSelectedModelFolder(path: string) {
-    alert(`New Mode: ${path}`);
+    this.selectedModelName = path;
+    alert(`selected path: ${this.selectedModelName}`)
   }
 
-  loadModel () {
+  modelOptionsUpdated() {
+    alert("Updating model");
+  }
 
+  async loadModel () {
+    alert(`loading model: ${this.selectedModelName}`)
+    await this.state.loadedModel.loadModel(this.selectedModelName)
+      .then((m)=> {
+          alert("model loaded");
+        }, 
+        (err) => { alert(`loadModel error: ${err}`)}
+      );
+      
+    this.setState({managerState: 1})
   }
 
   render() {
@@ -77,13 +98,24 @@ export default class ModelManager extends Component<ModelManagerProps, ModelMana
             <IonButton size="small" onClick={() => this.saveModel()}>Save Model</IonButton>
           </IonInput>
         </IonCard>
-        <FolderSelector rootPath="models" selectPath={this.setSelectedModelFolder} />
-        <IonButton size="small" onClick={() => this.loadModel()}>Load Model</IonButton>
+        <IonCard className="welcome-card">
+            <IonCardHeader>Select model to load:</IonCardHeader>
+          <IonCardContent>
+          <FolderSelector rootPath="models" selectPath={this.setSelectedModelFolder} />
+          <IonButton size="small" onClick={() => this.loadModel()}>Load Model</IonButton>
+          </IonCardContent>
+        </IonCard>
+        <IonCard>
+          <IonCardContent> 
+            {this.state.loadedModel.name}
+            {/* <ModelSettings model={this.state.loadedModel} modelUpdated={this.modelOptionsUpdated} /> */}
+          </IonCardContent> 
+        </IonCard>
         <IonToast
           isOpen={this.state.showToast}
           onDidDismiss={() => this.setShowToast(false)}
           message={this.state.toastMsg}
-          duration={20000}
+          duration={2000}
         />
       </IonContent>
   }
