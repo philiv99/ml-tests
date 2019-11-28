@@ -28,12 +28,20 @@ export default class FolderSelector extends Component<FolderSelectorProps, Folde
             paths: [],
             selectedPath: ""
         };
+    }
+
+    componentDidMount () {
         this.initPaths();
     }
 
     initPaths() {
         const fileMgr = new FileManager();
-        fileMgr.readdirectory(this.state.rootPath, FilesystemDirectory.Documents).then((r)=> this.setState({paths: r.files}));
+        fileMgr.readdirectory(this.state.rootPath, FilesystemDirectory.Documents).then((r)=> 
+        {
+            this.setState({paths: r.files})
+            if (r.files.length() > 0)
+                this.props.selectPath(r.files[0])
+        });
     }
     
     onPathSelected = (selectedObject: React.ChangeEvent<HTMLSelectElement>) => {
@@ -45,16 +53,9 @@ export default class FolderSelector extends Component<FolderSelectorProps, Folde
         this.props.selectPath(newPath);
     }
 
-    // getDirectory() {
-    //    const fileMgr = new FileManager();
-    //     fileMgr.readdirectory(this.state.rootPath, FilesystemDirectory.Documents).then((r)=> alert (`Documents: ${JSON.stringify(r)}`));
-    //     this.setState({paths: ["file3","file4"]})
-    // }
-
-    render () {
-        return <>
-            <IonItem>
-                <select  value={this.state.selectedPath} onChange={(e) => this.onPathSelected(e)}>
+    getPathOptions() {
+        if (this.state.paths)
+            return <select  value={this.state.selectedPath} onChange={(e) => this.onPathSelected(e)}>
                     {this.state.paths.map((path, i) => {
                         return (
                             <option key={`path${i}`} value={path}>
@@ -62,7 +63,16 @@ export default class FolderSelector extends Component<FolderSelectorProps, Folde
                             </option>
                         );
                     })}>
-                </select>
+                </select>;
+        else 
+            return <p>No models</p>
+    }
+
+    render () {
+        let options = this.getPathOptions();
+        return <>
+            <IonItem>
+                {options}
             </IonItem>
         </>
     }

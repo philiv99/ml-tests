@@ -37,6 +37,7 @@ export class ModelOptions {
     basePath: string;
     model: string;
     options: {
+        labels: Array<TLLabelOption>;
         epochs: number;
         numLabels: number;
         topk: number;
@@ -48,6 +49,7 @@ export class ModelOptions {
         this.basePath = FilesystemDirectory.Documents;
         this.model = "MobileNet";
         this.options = {
+            labels: new Array<TLLabelOption>(),
             epochs: 30,
             numLabels: 30,
             topk: 3
@@ -57,26 +59,23 @@ export class ModelOptions {
 
 export class TLModel extends BaseModel {
     trainingData: Array<TLTrainingDatum>;
-    labels: Array<TLLabelOption>;
     featureExtractor: any;
     classifier: any;
     modelState: TLModelState;
     fileMgr: FileManager;
     
-    modelOptions: ModelOptions;
+    public modelOptions: ModelOptions;
 
     constructor () {
         super();
         this.trainingData = new Array<TLTrainingDatum>();
-        this.labels = new Array<TLLabelOption>();
         this.modelState = TLModelState.new;
         this.modelOptions = new ModelOptions();
         this.fileMgr = new FileManager();
     }
 
     setModelName (name: string) {
-        var cleanName = name.replace(/[ |&;$%@"<>()+,]/g, "");
-        this.modelOptions.name = cleanName;
+        this.modelOptions.name = name.replace(/[ |&;$%@"<>()+,]/g, "");
     }
 
     setOptions (options:ModelOptions) {
@@ -98,8 +97,8 @@ export class TLModel extends BaseModel {
     }
 
     addLabel(label: string) {
-        if (!this.labels.find((l) => { return l.label == label  })) 
-            return this.labels.push({ label: label});
+        if (!this.modelOptions.options.labels.find((l) => { return l.label == label  })) 
+            return this.modelOptions.options.labels.push({ label: label});
         else
             return 0;
     }
@@ -119,27 +118,28 @@ export class TLModel extends BaseModel {
         return this.trainingData;
     }
 
-    loadModel (name: string) {
-        let modelOptions = {}
-        this.fileMgr.fileRead(`models/${name}/ModelOptions.json`, FilesystemDirectory.Documents)
+    async loadModel (name: string) {
+        alert("loadModel()")
+        return this.fileMgr.fileRead(`models/${name}/ModelOptions.json`, FilesystemDirectory.Documents)
             .then((options) => {
                 if (options && options.data)
-                    modelOptions = (JSON.parse(options.data));
+                    this.modelOptions = JSON.parse(options.data);
+                    alert(`${this.modelOptions.name} modelOptions loaded`)
+                    this.fileMgr.fileRead(`models/${name}/TrainingData.json`, FilesystemDirectory.Documents)
+                        .then((history) => {
+                            this.trainingData = JSON.parse(history.data);
+                            alert(`loaded ${this.trainingData.length} training examples`)
+                        });
             });
-        // this.name = "Test";
-        // this.timeStamp = new Date();
-        // this.basePath = FilesystemDirectory.Documents;
-        // this.model = "MobileNet";
-
     }
     
-    saveModel (modelName: string) {
-        
+    async saveModel (modelName: string = "") {
+        let name = modelName == ""?this.name:modelName;
         let modelOptionsJson = JSON.stringify(this.modelOptions);
-        return this.fileMgr.fileWrite(`models/${modelName}/ModelOptions.json`, modelOptionsJson)
+        return this.fileMgr.fileWrite(`models/${name}/ModelOptions.json`, modelOptionsJson)
                 .then((r) => {
                     let trainingDataJson = JSON.stringify(this.getTrainingHistory());
-                    return this.fileMgr.fileWrite(`models/${modelName}/TrainingData.json`, trainingDataJson);
+                    return this.fileMgr.fileWrite(`models/${name}/TrainingData.json`, trainingDataJson);
                 });
             // alert(`Saving model`);
             // this.classifier.save((weightsManifest:string, weightData:any)=>{
@@ -148,10 +148,10 @@ export class TLModel extends BaseModel {
             //     // else
             //     //     alert(`typeof weightData: ${typeof weightData}`)
             //     // alert ("weightsManifest: "+weightsManifest);
-            //     // fileMgr.fileWrite(`models/${modelName}/WeightsManifest.json`, weightsManifest);
-            //     //fileMgr.fileWrite(`models/${this.modelOptions.name}/${modelName}.weights.bin`)
-            //     //fileMgr.fileWrite(`models/${this.modelOptions.name}/${modelName}.weights.bin`, weightData);
-            // }, modelName);
+            //     // fileMgr.fileWrite(`models/${name}/WeightsManifest.json`, weightsManifest);
+            //     //fileMgr.fileWrite(`models/${this.modelOptions.name}/${name}.weights.bin`)
+            //     //fileMgr.fileWrite(`models/${this.modelOptions.name}/${name}.weights.bin`, weightData);
+            // }, name);
 
             // fileMgr.readdir(`models/${this.modelOptions.name}`).then((r)=> alert (`models/${this.modelOptions.name}:  ${JSON.stringify(r)}`));
             // fileMgr.readdirectory("com.infogoer.mltests", FilesystemDirectory.ExternalStorage).then((r)=> alert (`Data: ${JSON.stringify(r)}`));
